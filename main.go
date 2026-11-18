@@ -17,6 +17,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -359,6 +360,11 @@ func main() {
 	// --- Activities list (inside the journal panel) ---------------------
 	activityBox := container.NewVBox()
 
+	// Activities offered in the settings "export" picker (UI thread only).
+	var exportActs []mywhoosh.Activity
+	exportSelect := widget.NewSelect(nil, nil)
+	exportSelect.PlaceHolder = "Choisir une activité"
+
 	countUnsynced := func(acts []mywhoosh.Activity) int {
 		n := 0
 		for _, act := range acts {
@@ -395,6 +401,19 @@ func main() {
 				activityBox.Add(container.NewBorder(nil, nil, nil, widget.NewLabel(status), info))
 			}
 			activityBox.Refresh()
+
+			exportActs = acts
+			labels := make([]string, 0, len(acts))
+			for _, act := range acts {
+				label := []rune(act.FormattedDate() + " - " + act.DisplayName())
+				if len(label) > 30 { // keep the picker narrow on small screens
+					label = append(label[:29], '.', '.', '.')
+				}
+				labels = append(labels, string(label))
+			}
+			exportSelect.Options = labels
+			exportSelect.ClearSelected()
+			exportSelect.Refresh()
 		})
 	}
 
@@ -819,10 +838,59 @@ func main() {
 	backBtn := widget.NewButtonWithIcon("Retour", theme.NavigateBackIcon(), func() { showMain() })
 	backBtn.Importance = widget.LowImportance
 
-	resetBtn := widget.NewButton("Oublier les activités déjà synchronisées", func() {
+	resetBtn := widget.NewButton("Oublier les activités synchronisées", func() {
 		tracker.Reset()
 		settingsMsg.SetText("Liste effacée. Supprimez d'abord l'activité sur Garmin Connect, sinon Garmin la refusera comme doublon.")
 	})
+
+	exportBtn := widget.NewButton("Exporter le fichier FIT", func() {
+		idx := exportSelect.SelectedIndex()
+		if idx < 0 || idx >= len(exportActs) {
+			settingsMsg.SetText("Choisissez d'abord une activité (la liste se remplit à l'ouverture de l'app).")
+			return
+		}
+		act := exportActs[idx]
+		settingsMsg.SetText("Téléchargement du fichier...")
+		go func() {
+			fileID := act.ActivityFileID
+			if fileID == "" {
+				fileID = act.ID
+			}
+			data, err := mwClient.DownloadFitFile(fileID)
+			fyne.Do(func() {
+				if err != nil {
+					settingsMsg.SetText("Téléchargement échoué : " + err.Error())
+					return
+				}
+				settingsMsg.SetText("")
+				fd := dialog.NewFileSave(func(wc fyne.URIWriteCloser, err error) {
+					if err != nil {
+						settingsMsg.SetText("Export échoué : " + err.Error())
+						return
+					}
+					if wc == nil {
+						return // cancelled
+					}
+					defer wc.Close()
+					if _, werr := wc.Write(data); werr != nil {
+						settingsMsg.SetText("Export échoué : " + werr.Error())
+						return
+					}
+					settingsMsg.SetText("Fichier exporté.")
+				}, w)
+				fd.SetFileName(fmt.Sprintf("mywhoosh_%s.fit", act.ID))
+				fd.Show()
+			})
+		}()
+	})
+
+	// Long texts must wrap, otherwise their natural width pushes the whole
+	// form wider than the screen.
+	note := func(text string) *widget.Label {
+		l := widget.NewLabel(text)
+		l.Wrapping = fyne.TextWrapWord
+		return l
+	}
 
 	settingsForm := container.NewVBox(
 		container.NewHBox(backBtn),
@@ -835,13 +903,18 @@ func main() {
 		garminEmailEntry,
 		garminPasswordEntry,
 		garminMFAEntry,
-		widget.NewLabel("Le mot de passe Garmin et le code MFA ne servent qu'à la première connexion."),
+		note("Le mot de passe Garmin et le code MFA ne servent qu'à la première connexion."),
 		widget.NewSeparator(),
 		widget.NewLabel("Appareil présenté à Garmin"),
 		deviceSelect,
 		deviceSerialEntry,
-		widget.NewLabel("Avec votre propre numéro de série (Garmin Connect > Appareils > Infos), l'activité est rattachée à votre vraie montre. Vos capteurs (cardiaque, puissance) ne sont pas modifiés."),
+		note("Avec votre propre numéro de série (Garmin Connect > Appareils > Infos), l'activité est rattachée à votre vraie montre. Vos capteurs (cardiaque, puissance) ne sont pas modifiés."),
 		resetBtn,
+		widget.NewSeparator(),
+		widget.NewLabel("Exporter le fichier d'origine de MyWhoosh"),
+		exportSelect,
+		exportBtn,
+		widget.NewSeparator(),
 		saveBtn,
 		settingsMsg,
 	)
