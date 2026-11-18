@@ -23,6 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Set app version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="dev-${GITHUB_SHA::7}"; fi
+          printf 'package main\n\nfunc init() { appVersion = "%s" }\n' "$V" > version_gen.go
+          cat version_gen.go
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -45,6 +50,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Set app version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="dev-${GITHUB_SHA::7}"; fi
+          printf 'package main\n\nfunc init() { appVersion = "%s" }\n' "$V" > version_gen.go
+          cat version_gen.go
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -75,6 +85,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Set app version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="dev-${GITHUB_SHA::7}"; fi
+          printf 'package main\n\nfunc init() { appVersion = "%s" }\n' "$V" > version_gen.go
+          cat version_gen.go
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -128,6 +143,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Set app version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="dev-${GITHUB_SHA::7}"; fi
+          printf 'package main\n\nfunc init() { appVersion = "%s" }\n' "$V" > version_gen.go
+          cat version_gen.go
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod

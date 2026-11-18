@@ -126,6 +126,10 @@ func (st *syncedTracker) MarkSynced(activityID string) {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// appVersion is set at build time by CI (version_gen.go): the release tag for
+// tagged builds, "dev-<commit>" for test builds.
+var appVersion = "dev"
+
 var (
 	errNeedMW     = errors.New("MyWhoosh login required")
 	errNeedGarmin = errors.New("Garmin login required")
@@ -892,6 +896,9 @@ func main() {
 		return l
 	}
 
+	versionLabel := note("Version " + appVersion)
+	versionLabel.Alignment = fyne.TextAlignCenter
+
 	settingsForm := container.NewVBox(
 		container.NewHBox(backBtn),
 		widget.NewRichTextFromMarkdown("## Réglages"),
@@ -917,6 +924,8 @@ func main() {
 		widget.NewSeparator(),
 		saveBtn,
 		settingsMsg,
+		widget.NewSeparator(),
+		versionLabel,
 	)
 	settingsView := container.NewVScroll(container.NewPadded(container.New(maxWidthLayout{max: 480}, settingsForm)))
 
