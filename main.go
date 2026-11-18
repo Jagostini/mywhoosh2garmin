@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -36,6 +37,8 @@ type appConfig struct {
 	GarminMFA     string `json:"garmin_mfa"`
 	LastSyncAt    string `json:"last_sync_at"`
 	LastSummary   string `json:"last_summary"`
+	DeviceModel   string `json:"device_model"`  // "fenix6x" (default), "fenix6s", "none"
+	DeviceSerial  string `json:"device_serial"` // optional unit id of your own watch
 }
 
 func appConfigDir() string {
@@ -100,6 +103,14 @@ func (st *syncedTracker) IsSynced(activityID string) bool {
 	defer st.mu.Unlock()
 	_, ok := st.uploaded[activityID]
 	return ok
+}
+
+// Reset forgets every synced activity so they can be uploaded again.
+func (st *syncedTracker) Reset() {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	st.uploaded = make(map[string]string)
+	os.Remove(st.path)
 }
 
 func (st *syncedTracker) MarkSynced(activityID string) {
@@ -169,6 +180,44 @@ func lastSyncText(cfg appConfig) string {
 	return text
 }
 
+var deviceModels = []struct{ Key, Label string }{
+	{"fenix6x", "Garmin Fenix 6X Pro / Solar"},
+	{"fenix6s", "Garmin Fenix 6S Pro"},
+}
+
+func deviceLabel(key string) string {
+	for _, d := range deviceModels {
+		if d.Key == key {
+			return d.Label
+		}
+	}
+	return deviceModels[0].Label
+}
+
+func deviceKey(label string) string {
+	for _, d := range deviceModels {
+		if d.Label == label {
+			return d.Key
+		}
+	}
+	return deviceModels[0].Key
+}
+
+// applySpoof copies the device settings into the FIT fixer.
+func applySpoof(cfg appConfig) {
+	sp := deviceSpoof{Enabled: true, Product: productFenix6XPro, Serial: fakeSerialNumber}
+	switch cfg.DeviceModel {
+	case "fenix6s":
+		sp.Product = productFenix6SPro
+	case "none":
+		sp.Enabled = false
+	}
+	if n, err := strconv.ParseUint(strings.TrimSpace(cfg.DeviceSerial), 10, 32); err == nil && n > 0 {
+		sp.Serial = uint32(n)
+	}
+	spoofCfg = sp
+}
+
 type uploadOutcome int
 
 const (
@@ -202,6 +251,7 @@ func main() {
 		return cfg
 	}
 
+	applySpoof(cfg)
 	tracker := newSyncedTracker(appConfigDir())
 	mwClient := mywhoosh.NewClient(appConfigDir())
 	var garminClient *garmin.Client
@@ -267,6 +317,16 @@ func main() {
 		return nil
 	}
 	garminMFAEntry.SetText(cfg.GarminMFA)
+
+	deviceLabels := make([]string, 0, len(deviceModels))
+	for _, d := range deviceModels {
+		deviceLabels = append(deviceLabels, d.Label)
+	}
+	deviceSelect := widget.NewSelect(deviceLabels, nil)
+	deviceSelect.SetSelected(deviceLabel(cfg.DeviceModel))
+	deviceSerialEntry := widget.NewEntry()
+	deviceSerialEntry.SetPlaceHolder("Numéro de série / Unit ID (optionnel)")
+	deviceSerialEntry.SetText(cfg.DeviceSerial)
 
 	// --- Status pills ---------------------------------------------------
 	setPill := func(label *widget.RichText, message string, importance widget.Importance) {
@@ -715,7 +775,10 @@ func main() {
 			c.MyWhooshEmail = mwEmailEntry.Text
 			c.GarminEmail = garminEmailEntry.Text
 			c.GarminMFA = strings.TrimSpace(garminMFAEntry.Text)
+			c.DeviceModel = deviceKey(deviceSelect.Selected)
+			c.DeviceSerial = strings.TrimSpace(deviceSerialEntry.Text)
 		})
+		applySpoof(readCfg())
 		settingsMsg.SetText("Test des connexions...")
 		saveBtn.Disable()
 		go func() {
@@ -756,6 +819,11 @@ func main() {
 	backBtn := widget.NewButtonWithIcon("Retour", theme.NavigateBackIcon(), func() { showMain() })
 	backBtn.Importance = widget.LowImportance
 
+	resetBtn := widget.NewButton("Oublier les activités déjà synchronisées", func() {
+		tracker.Reset()
+		settingsMsg.SetText("Liste effacée. Supprimez d'abord l'activité sur Garmin Connect, sinon Garmin la refusera comme doublon.")
+	})
+
 	settingsForm := container.NewVBox(
 		container.NewHBox(backBtn),
 		widget.NewRichTextFromMarkdown("## Réglages"),
@@ -768,6 +836,12 @@ func main() {
 		garminPasswordEntry,
 		garminMFAEntry,
 		widget.NewLabel("Le mot de passe Garmin et le code MFA ne servent qu'à la première connexion."),
+		widget.NewSeparator(),
+		widget.NewLabel("Appareil présenté à Garmin"),
+		deviceSelect,
+		deviceSerialEntry,
+		widget.NewLabel("Avec votre propre numéro de série (Garmin Connect > Appareils > Infos), l'activité est rattachée à votre vraie montre. Vos capteurs (cardiaque, puissance) ne sont pas modifiés."),
+		resetBtn,
 		saveBtn,
 		settingsMsg,
 	)

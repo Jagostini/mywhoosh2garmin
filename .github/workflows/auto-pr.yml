@@ -1,0 +1,32 @@
+name: Auto PR
+on:
+  push:
+    branches-ignore:
+      - main
+      - 'dependabot/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Open a pull request if none exists for this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          OPEN="$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')"
+          if [ "$OPEN" = "0" ]; then
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "$(git log -1 --pretty=%s)" \
+              --body "Automatic pull request for branch \`$BRANCH\`. The build workflow runs on every push; download the artifacts from its run."
+          else
+            echo "A pull request already exists for $BRANCH"
+          fi

@@ -4,7 +4,7 @@ on:
     tags:
       - 'v*'
     branches:
-      - 'android-*'
+      - '**'
   workflow_dispatch:
     inputs:
       tag:
@@ -20,7 +20,6 @@ concurrency:
 
 jobs:
   build-linux:
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -30,7 +29,7 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gcc libgl-dev xorg-dev libxxf86vm-dev
+          sudo apt-get install -y --no-install-recommends gcc libgl-dev xorg-dev libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols libegl-dev pkg-config
       - name: Build Linux
         env:
           CGO_ENABLED: 1
@@ -43,7 +42,6 @@ jobs:
           path: mywhoosh2garmin-linux-amd64
 
   build-windows:
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -74,7 +72,6 @@ jobs:
           path: mywhoosh2garmin-windows-amd64.exe
 
   build-macos:
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
