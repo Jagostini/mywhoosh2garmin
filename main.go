@@ -4,8 +4,10 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +39,20 @@ type appConfig struct {
 }
 
 func appConfigDir() string {
+	// On Android there is no usable home directory: use the app's private
+	// storage (Fyne creates it), falling back to the cache/temp dir.
+	if runtime.GOOS == "android" {
+		if a := fyne.CurrentApp(); a != nil {
+			if root := a.Storage().RootURI(); root != nil && root.Path() != "" {
+				dir := filepath.Join(root.Path(), "mywhoosh2garmin")
+				os.MkdirAll(dir, 0o700)
+				return dir
+			}
+		}
+		dir := filepath.Join(os.TempDir(), "mywhoosh2garmin")
+		os.MkdirAll(dir, 0o700)
+		return dir
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".mywhoosh2garmin")
 }
@@ -461,6 +477,7 @@ func main() {
 
 	// --- Fetch Activities button ---
 	var fetching bool
+	var autoUpload bool // set by the big Sync button: upload right after fetching
 	fetchBtn := widget.NewButton("📋  Fetch Activities (last 10 days)", nil)
 	fetchBtn.Importance = widget.HighImportance
 
@@ -474,7 +491,11 @@ func main() {
 		go func() {
 			defer func() {
 				fetching = false
-				fyne.Do(func() { fetchBtn.Enable() })
+				// If the fetch bailed out early, drop any pending auto-upload.
+				fyne.Do(func() {
+					autoUpload = false
+					fetchBtn.Enable()
+				})
 			}()
 
 			// Persist config
@@ -677,6 +698,19 @@ func main() {
 		}()
 	}
 
+	// --- Big one-tap Sync button: fetch last 10 days, then upload all new ---
+	syncBtn := widget.NewButton("🚀  SYNCHRONISER", func() {
+		if fetching || uploadingAll {
+			return
+		}
+		autoUpload = true
+		fetchBtn.OnTapped()
+	})
+	syncBtn.Importance = widget.HighImportance
+	syncSizer := canvas.NewRectangle(color.Transparent)
+	syncSizer.SetMinSize(fyne.NewSize(0, 96))
+	bigSync := container.NewStack(syncSizer, syncBtn)
+
 	// --- Layout ---
 	title := widget.NewRichTextFromMarkdown("## MyWhoosh → Garmin")
 
@@ -719,6 +753,7 @@ func main() {
 
 	topForm := container.NewVBox(
 		title,
+		bigSync,
 		widget.NewSeparator(),
 		credentialsRow,
 		widget.NewSeparator(),
@@ -728,7 +763,14 @@ func main() {
 		activitiesHeader,
 	)
 
-	content := container.NewBorder(topForm, logScroll, nil, nil, activityScroll)
+	var content fyne.CanvasObject
+	if runtime.GOOS == "android" || runtime.GOOS == "ios" {
+		// Small screen: a single scrollable column instead of nested scrolls.
+		logScroll.SetMinSize(fyne.NewSize(0, 220))
+		content = container.NewVScroll(container.NewVBox(topForm, activityListBox, widget.NewSeparator(), logScroll))
+	} else {
+		content = container.NewBorder(topForm, logScroll, nil, nil, activityScroll)
+	}
 	w.SetContent(content)
 	w.ShowAndRun()
 }

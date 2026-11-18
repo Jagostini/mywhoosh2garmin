@@ -118,8 +118,44 @@ jobs:
           name: MyWhoosh2Garmin-macos-arm64.dmg
           path: MyWhoosh2Garmin-macos-arm64.dmg
 
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "ndk;26.1.10909125" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> "$GITHUB_ENV"
+      - name: Install Fyne CLI
+        run: go install fyne.io/tools/cmd/fyne@latest
+      - name: Package Android APK
+        run: |
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          VERSION="${VERSION#v}"
+          case "$VERSION" in [0-9]*.[0-9]*.[0-9]*) ;; *) VERSION="1.0.0" ;; esac
+          "$(go env GOPATH)/bin/fyne" package --target android \
+            --app-id com.pgee70.mywhoosh2garmin \
+            --name MyWhoosh2Garmin \
+            --icon images/icon.png \
+            --app-version "$VERSION" \
+            --app-build "${GITHUB_RUN_NUMBER}"
+          ls -lh *.apk
+          mv *.apk MyWhoosh2Garmin-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyWhoosh2Garmin-android.apk
+          path: MyWhoosh2Garmin-android.apk
+
   release:
-    needs: [build-linux, build-windows, build-macos]
+    needs: [build-linux, build-windows, build-macos, build-android]
     runs-on: ubuntu-latest
     # Run when triggered by a version tag push, or a manual dispatch with a tag provided
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
@@ -139,3 +175,4 @@ jobs:
             artifacts/mywhoosh2garmin-linux-amd64/mywhoosh2garmin-linux-amd64
             artifacts/mywhoosh2garmin-windows-amd64.exe/mywhoosh2garmin-windows-amd64.exe
             artifacts/MyWhoosh2Garmin-macos-arm64.dmg/MyWhoosh2Garmin-macos-arm64.dmg
+            artifacts/MyWhoosh2Garmin-android.apk/MyWhoosh2Garmin-android.apk
