@@ -1,6 +1,6 @@
 # MyWhoosh2Garmin
 
-A single-executable GUI app that syncs your [MyWhoosh](https://www.mywhoosh.com/) indoor cycling activities to [Garmin Connect](https://connect.garmin.com/) — with full training effect, VO2max, and performance stats support.
+A single-executable GUI app (desktop and Android) that syncs your [MyWhoosh](https://www.mywhoosh.com/) indoor cycling activities to [Garmin Connect](https://connect.garmin.com/) — with full training effect, VO2max, and performance stats support.
 
 No need to run this on the same PC as MyWhoosh — the app downloads activities directly from your MyWhoosh account.
 
@@ -32,8 +32,17 @@ Grab the latest release for your platform from the [**Releases**](../../releases
 | Windows | `mywhoosh2garmin-windows-amd64.exe` |
 | Linux | `mywhoosh2garmin-linux-amd64` |
 | macOS (Apple Silicon) | `MyWhoosh2Garmin-macos-arm64.dmg` |
+| Android | `MyWhoosh2Garmin-android.apk` |
 
-No installation needed — just download and run.
+On desktop, no installation is needed — just download and run.
+
+### Android note
+
+1. Download `MyWhoosh2Garmin-android.apk` from the release page on your phone.
+2. Open it and allow installation from unknown sources when Android asks (the APK is signed with a debug key, not published on the Play Store).
+3. Launch **MyWhoosh2Garmin**, enter your credentials once, then tap the big **🚀 SYNCHRONISER** button.
+
+On Android, settings and tokens are stored in the app's private storage and are removed if you uninstall the app.
 
 ### macOS note
 
@@ -59,7 +68,15 @@ Enter your **Garmin Connect email** and **password**. These are only sent direct
 
 After the first login, a session token is cached locally (`~/.mywhoosh2garmin/`) and reused for up to a year. You won't need to enter your password again unless the token expires.
 
-### 3. Fetch Activities
+### 3. Garmin MFA (if enabled on your account)
+
+If Garmin sends you a 6-digit verification code by email, enter it in the **MFA code** field and press **Enter Code** (or **Check Garmin Login** again). The resulting session token is cached, so you only need to do this on the first login or after the token expires.
+
+### 4. One-tap Sync
+
+Tap the big **🚀 SYNCHRONISER** button at the top of the window. It does steps 5 and 6 in one go: it fetches the last 10 days of activities, then uploads every activity that has not been synced yet. This is the easiest way to use the app, especially on a phone.
+
+### 5. Fetch Activities
 
 Click **📋 Fetch Activities (last 10 days)** and the app will:
 
@@ -67,7 +84,7 @@ Click **📋 Fetch Activities (last 10 days)** and the app will:
 2. Fetch your activities from the last 10 days
 3. Display them in a list showing date, title, distance, duration, power, and heart rate — with an upload button next to each one
 
-### 4. Upload to Garmin
+### 6. Upload to Garmin
 
 You can either:
 
@@ -88,6 +105,7 @@ For each activity, the app will:
 - Go 1.24+
 - GCC (for Fyne/CGO)
 - Windows cross-compile from Linux: `mingw-w64`, `libgl-dev`, `xorg-dev`, `libxxf86vm-dev`
+- Android: Android NDK and the [Fyne CLI](https://docs.fyne.io/started/packaging) (`go install fyne.io/tools/cmd/fyne@latest`)
 
 ### Build
 
@@ -99,6 +117,22 @@ go build -o mywhoosh2garmin .
 ./build.sh
 # Output in dist/
 ```
+
+### Android APK
+
+```bash
+export ANDROID_NDK_HOME=/path/to/android/ndk
+fyne package --target android \
+  --app-id com.pgee70.mywhoosh2garmin \
+  --name MyWhoosh2Garmin \
+  --icon images/icon.png
+```
+
+The GitHub Actions workflow (`.github/workflows/release.yml`) builds the APK automatically:
+
+- on a `v*` tag push — also publishes the APK on the GitHub release;
+- on a push to any `android-*` branch — build only, for testing (download the APK from the run's artifacts);
+- manually, via **Actions → Build & Release → Run workflow**.
 
 ### Run tests
 
@@ -137,6 +171,13 @@ go test ./...
   (VO2max ✓)
   (Training Load ✓)
 ```
+
+## Where data is stored
+
+| Platform | Location |
+|---|---|
+| Desktop | `~/.mywhoosh2garmin/` (config, session tokens, synced-activity list) |
+| Android | The app's private storage (not accessible to other apps) |
 
 ## Credits
 
