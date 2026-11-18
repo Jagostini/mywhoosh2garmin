@@ -29,7 +29,7 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gcc libgl-dev xorg-dev libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols pkg-config
+          sudo apt-get install -y --no-install-recommends gcc libgl-dev xorg-dev libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols libegl-dev pkg-config
       - name: Build Linux
         env:
           CGO_ENABLED: 1
