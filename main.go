@@ -834,12 +834,12 @@ func main() {
 	backBtn := widget.NewButtonWithIcon("Retour", theme.NavigateBackIcon(), func() { showMain() })
 	backBtn.Importance = widget.LowImportance
 
-	resetBtn := widget.NewButton("Oublier les activités déjà synchronisées", func() {
+	resetBtn := widget.NewButton("Oublier les activités synchronisées", func() {
 		tracker.Reset()
 		settingsMsg.SetText("Liste effacée. Supprimez d'abord l'activité sur Garmin Connect, sinon Garmin la refusera comme doublon.")
 	})
 
-	exportBtn := widget.NewButton("Exporter le fichier MyWhoosh (FIT)", func() {
+	exportBtn := widget.NewButton("Exporter le fichier FIT", func() {
 		idx := exportSelect.SelectedIndex()
 		if idx < 0 || idx >= len(exportActs) {
 			settingsMsg.SetText("Choisissez d'abord une activité (la liste se remplit à l'ouverture de l'app).")
@@ -880,6 +880,14 @@ func main() {
 		}()
 	})
 
+	// Long texts must wrap, otherwise their natural width pushes the whole
+	// form wider than the screen.
+	note := func(text string) *widget.Label {
+		l := widget.NewLabel(text)
+		l.Wrapping = fyne.TextWrapWord
+		return l
+	}
+
 	settingsForm := container.NewVBox(
 		container.NewHBox(backBtn),
 		widget.NewRichTextFromMarkdown("## Réglages"),
@@ -891,12 +899,12 @@ func main() {
 		garminEmailEntry,
 		garminPasswordEntry,
 		garminMFAEntry,
-		widget.NewLabel("Le mot de passe Garmin et le code MFA ne servent qu'à la première connexion."),
+		note("Le mot de passe Garmin et le code MFA ne servent qu'à la première connexion."),
 		widget.NewSeparator(),
 		widget.NewLabel("Appareil présenté à Garmin"),
 		deviceSelect,
 		deviceSerialEntry,
-		widget.NewLabel("Avec votre propre numéro de série (Garmin Connect > Appareils > Infos), l'activité est rattachée à votre vraie montre. Vos capteurs (cardiaque, puissance) ne sont pas modifiés."),
+		note("Avec votre propre numéro de série (Garmin Connect > Appareils > Infos), l'activité est rattachée à votre vraie montre. Vos capteurs (cardiaque, puissance) ne sont pas modifiés."),
 		resetBtn,
 		widget.NewSeparator(),
 		widget.NewLabel("Exporter le fichier d'origine de MyWhoosh"),
