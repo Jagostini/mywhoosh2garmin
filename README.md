@@ -56,47 +56,41 @@ Or right-click the `.app` inside the DMG and choose **Open**, then click **Open*
 
 ## How to Use
 
-### 1. Enter MyWhoosh credentials
+The main screen is built around one big round button. Account details live in the settings screen (gear icon, top right), so day to day you only tap **Synchroniser**.
 
-Enter your **MyWhoosh email** and **password**. These are used to log in to the MyWhoosh API and fetch your activity list.
+### 1. First launch: settings
 
-After the first login, the session token is cached locally (`~/.mywhoosh2garmin/`) so you won't need to enter your password again unless the token expires.
+On first launch the app opens the settings screen directly:
 
-### 2. Enter Garmin credentials
+- Enter your **MyWhoosh** email and password.
+- Enter your **Garmin Connect** email and password. If Garmin sends you a 6-digit code by email (MFA), enter it in the MFA field.
+- Tap **Enregistrer et tester**. Both connections are checked, and you land on the main screen.
 
-Enter your **Garmin Connect email** and **password**. These are only sent directly to Garmin's SSO servers — never stored or sent anywhere else.
+Passwords are only sent to MyWhoosh and Garmin's own servers. After the first login, session tokens are cached locally and reused (Garmin sessions last about a year), so you won't be asked again unless they expire.
 
-After the first login, a session token is cached locally (`~/.mywhoosh2garmin/`) and reused for up to a year. You won't need to enter your password again unless the token expires.
+### 2. Synchronise
 
-### 3. Garmin MFA (if enabled on your account)
+Tap the big button. The app fetches your last 10 days of MyWhoosh activities and uploads the ones that are not on Garmin yet. The button shows what is going on:
 
-If Garmin sends you a 6-digit verification code by email, enter it in the **MFA code** field and press **Enter Code** (or **Check Garmin Login** again). The resulting session token is cached, so you only need to do this on the first login or after the token expires.
+| State | Look | Meaning |
+|---|---|---|
+| Ready | Dark disc, **Synchroniser**, a badge such as "2 nouvelles" | New activities are waiting (checked automatically at startup) |
+| Running | Progress ring, e.g. **2/3** | Downloading, fixing and uploading |
+| Done | Green disc, **À jour** | Everything is on Garmin |
+| Action required | Red disc, **Réessayer**, plus a shortcut button | A login or MFA code is needed; the shortcut opens the settings |
 
-### 4. One-tap Sync
+Under the button you see the date of the last sync and a short summary, for example "1 envoyée, 1 déjà sur Garmin".
 
-Tap the big **🚀 SYNCHRONISER** button at the top of the window. It does steps 5 and 6 in one go: it fetches the last 10 days of activities, then uploads every activity that has not been synced yet. This is the easiest way to use the app, especially on a phone.
+For each activity, the app:
 
-### 5. Fetch Activities
+1. Downloads the FIT file from MyWhoosh
+2. Fixes averages, strips temperature, spoofs device identity
+3. Uploads it to Garmin Connect
+4. Remembers it, so it is never uploaded twice
 
-Click **📋 Fetch Activities (last 10 days)** and the app will:
+### 3. Journal and activities
 
-1. Log in to your MyWhoosh account (or resume a cached session)
-2. Fetch your activities from the last 10 days
-3. Display them in a list showing date, title, distance, duration, power, and heart rate — with an upload button next to each one
-
-### 6. Upload to Garmin
-
-You can either:
-
-- Click **⬆ Upload** next to individual activities to upload them one by one
-- Click **⬆ Upload All to Garmin** to upload all unsynced activities at once
-
-For each activity, the app will:
-
-1. Download the FIT file from MyWhoosh
-2. Fix averages, strip temperature, spoof device identity
-3. Upload to Garmin Connect
-4. Mark the activity as synced so it won't be uploaded again
+The **Afficher le journal** button reveals the list of recent activities (synced or waiting) and a technical log. On wide screens (tablet, desktop) the app switches to two columns and always shows this panel on the right.
 
 ## Building from Source
 
