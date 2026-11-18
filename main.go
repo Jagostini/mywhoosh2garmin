@@ -17,6 +17,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -359,6 +360,11 @@ func main() {
 	// --- Activities list (inside the journal panel) ---------------------
 	activityBox := container.NewVBox()
 
+	// Activities offered in the settings "export" picker (UI thread only).
+	var exportActs []mywhoosh.Activity
+	exportSelect := widget.NewSelect(nil, nil)
+	exportSelect.PlaceHolder = "Choisir une activité"
+
 	countUnsynced := func(acts []mywhoosh.Activity) int {
 		n := 0
 		for _, act := range acts {
@@ -395,6 +401,15 @@ func main() {
 				activityBox.Add(container.NewBorder(nil, nil, nil, widget.NewLabel(status), info))
 			}
 			activityBox.Refresh()
+
+			exportActs = acts
+			labels := make([]string, 0, len(acts))
+			for _, act := range acts {
+				labels = append(labels, act.FormattedDate()+" - "+act.DisplayName())
+			}
+			exportSelect.Options = labels
+			exportSelect.ClearSelected()
+			exportSelect.Refresh()
 		})
 	}
 
@@ -824,6 +839,47 @@ func main() {
 		settingsMsg.SetText("Liste effacée. Supprimez d'abord l'activité sur Garmin Connect, sinon Garmin la refusera comme doublon.")
 	})
 
+	exportBtn := widget.NewButton("Exporter le fichier MyWhoosh (FIT)", func() {
+		idx := exportSelect.SelectedIndex()
+		if idx < 0 || idx >= len(exportActs) {
+			settingsMsg.SetText("Choisissez d'abord une activité (la liste se remplit à l'ouverture de l'app).")
+			return
+		}
+		act := exportActs[idx]
+		settingsMsg.SetText("Téléchargement du fichier...")
+		go func() {
+			fileID := act.ActivityFileID
+			if fileID == "" {
+				fileID = act.ID
+			}
+			data, err := mwClient.DownloadFitFile(fileID)
+			fyne.Do(func() {
+				if err != nil {
+					settingsMsg.SetText("Téléchargement échoué : " + err.Error())
+					return
+				}
+				settingsMsg.SetText("")
+				fd := dialog.NewFileSave(func(wc fyne.URIWriteCloser, err error) {
+					if err != nil {
+						settingsMsg.SetText("Export échoué : " + err.Error())
+						return
+					}
+					if wc == nil {
+						return // cancelled
+					}
+					defer wc.Close()
+					if _, werr := wc.Write(data); werr != nil {
+						settingsMsg.SetText("Export échoué : " + werr.Error())
+						return
+					}
+					settingsMsg.SetText("Fichier exporté.")
+				}, w)
+				fd.SetFileName(fmt.Sprintf("mywhoosh_%s.fit", act.ID))
+				fd.Show()
+			})
+		}()
+	})
+
 	settingsForm := container.NewVBox(
 		container.NewHBox(backBtn),
 		widget.NewRichTextFromMarkdown("## Réglages"),
@@ -842,6 +898,11 @@ func main() {
 		deviceSerialEntry,
 		widget.NewLabel("Avec votre propre numéro de série (Garmin Connect > Appareils > Infos), l'activité est rattachée à votre vraie montre. Vos capteurs (cardiaque, puissance) ne sont pas modifiés."),
 		resetBtn,
+		widget.NewSeparator(),
+		widget.NewLabel("Exporter le fichier d'origine de MyWhoosh"),
+		exportSelect,
+		exportBtn,
+		widget.NewSeparator(),
 		saveBtn,
 		settingsMsg,
 	)
