@@ -183,7 +183,6 @@ func lastSyncText(cfg appConfig) string {
 var deviceModels = []struct{ Key, Label string }{
 	{"fenix6x", "Garmin Fenix 6X Pro / Solar"},
 	{"fenix6s", "Garmin Fenix 6S Pro"},
-	{"none", "Garder l'appareil MyWhoosh (sans Training Effect)"},
 }
 
 func deviceLabel(key string) string {
