@@ -578,9 +578,17 @@ func main() {
 				if unsynced > 0 {
 					uploadAllBtn.Enable()
 					uploadAllBtn.SetText(fmt.Sprintf("⬆  Upload All to Garmin (%d new)", unsynced))
+					if autoUpload {
+						autoUpload = false
+						uploadAllBtn.OnTapped()
+					}
 				} else {
 					uploadAllBtn.SetText("✓  All synced")
 					uploadAllBtn.Disable()
+					if autoUpload {
+						autoUpload = false
+						appendLog("✓ Nothing new to sync")
+					}
 				}
 			})
 		}()
