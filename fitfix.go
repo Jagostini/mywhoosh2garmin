@@ -27,8 +27,7 @@ const (
 
 // Device spoofing constants.
 const (
-	garminManufacturer = typedef.ManufacturerGarmin   // 1
-	fenix6sProduct     = typedef.GarminProductFenix6s // 3288
+	garminManufacturer = typedef.ManufacturerGarmin // 1
 	fakeSerialNumber   = uint32(3420897194)
 )
 
@@ -232,18 +231,53 @@ func avgU8(vals []uint8) uint8 {
 // Device spoofing
 // ---------------------------------------------------------------------------
 
-func spoofDevice(activity *filedef.Activity) {
-	activity.FileId.Manufacturer = garminManufacturer
-	activity.FileId.Product = fenix6sProduct.Uint16()
-	activity.FileId.SerialNumber = fakeSerialNumber
+// deviceSpoof describes how the recording device is presented to Garmin.
+type deviceSpoof struct {
+	Enabled bool   // false = keep the MyWhoosh device untouched
+	Product uint16 // Garmin product id (FIT profile)
+	Serial  uint32 // unit id / serial number
+}
 
-	for _, di := range activity.DeviceInfos {
-		di.Manufacturer = garminManufacturer
-		di.Product = fenix6sProduct.Uint16()
-		di.SerialNumber = fakeSerialNumber
+// spoofCfg is set from the app settings at startup and when they change.
+var spoofCfg = deviceSpoof{Enabled: true, Product: 3291, Serial: fakeSerialNumber}
+
+// Garmin product ids (FIT profile "garmin_product").
+const (
+	productFenix6SPro = 3288
+	productFenix6XPro = 3291
+)
+
+func spoofDevice(activity *filedef.Activity) {
+	// Always log what MyWhoosh wrote, to help diagnose sensor issues.
+	for i, di := range activity.DeviceInfos {
+		logFn("  device_info #%d: index=%v manufacturer=%v product=%v serial=%v\n",
+			i, di.DeviceIndex, di.Manufacturer, di.Product, di.SerialNumber)
 	}
 
-	logFn("  → device spoofed: Garmin Fenix 6S Pro (product %d)\n", fenix6sProduct)
+	if !spoofCfg.Enabled {
+		logFn("  → device kept as recorded by MyWhoosh (no Training Effect on Garmin)\n")
+		return
+	}
+
+	activity.FileId.Manufacturer = garminManufacturer
+	activity.FileId.Product = spoofCfg.Product
+	activity.FileId.SerialNumber = spoofCfg.Serial
+
+	// Only the recording device (device_index 0, or unset) is replaced.
+	// Other entries are sensors (heart rate strap, power meter...): leave
+	// them as they are so Garmin keeps their identity.
+	for _, di := range activity.DeviceInfos {
+		idx := uint8(di.DeviceIndex)
+		if idx != 0 && idx != 0xFF {
+			continue
+		}
+		di.Manufacturer = garminManufacturer
+		di.Product = spoofCfg.Product
+		di.SerialNumber = spoofCfg.Serial
+	}
+
+	logFn("  → device set to Garmin product %d (serial %d); sensors untouched\n",
+		spoofCfg.Product, spoofCfg.Serial)
 }
 
 // ---------------------------------------------------------------------------
