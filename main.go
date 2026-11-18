@@ -405,7 +405,11 @@ func main() {
 			exportActs = acts
 			labels := make([]string, 0, len(acts))
 			for _, act := range acts {
-				labels = append(labels, act.FormattedDate()+" - "+act.DisplayName())
+				label := []rune(act.FormattedDate() + " - " + act.DisplayName())
+				if len(label) > 30 { // keep the picker narrow on small screens
+					label = append(label[:29], '.', '.', '.')
+				}
+				labels = append(labels, string(label))
 			}
 			exportSelect.Options = labels
 			exportSelect.ClearSelected()
