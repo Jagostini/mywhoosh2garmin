@@ -29,16 +29,16 @@ Grab the latest release for your platform from the [**Releases**](../../releases
 
 | Platform | File |
 |---|---|
-| Windows | `mywhoosh2garmin-windows-amd64.exe` |
-| Linux | `mywhoosh2garmin-linux-amd64` |
-| macOS (Apple Silicon) | `MyWhoosh2Garmin-macos-arm64.dmg` |
-| Android | `MyWhoosh2Garmin-android.apk` |
+| Windows | `MyWhoosh2Garmin-<version>-windows-amd64.exe` |
+| Linux | `MyWhoosh2Garmin-<version>-linux-amd64` |
+| macOS (Apple Silicon) | `MyWhoosh2Garmin-<version>-macos-arm64.dmg` |
+| Android | `MyWhoosh2Garmin-<version>.apk` |
 
 On desktop, no installation is needed — just download and run.
 
 ### Android note
 
-1. Download `MyWhoosh2Garmin-android.apk` from the release page on your phone.
+1. Download `MyWhoosh2Garmin-<version>.apk` from the release page on your phone.
 2. Open it and allow installation from unknown sources when Android asks (the APK is signed with a debug key, not published on the Play Store).
 3. Launch **MyWhoosh2Garmin**, enter your credentials once, then tap the big **🚀 SYNCHRONISER** button.
 

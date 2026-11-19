@@ -27,6 +27,7 @@ jobs:
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="dev-${GITHUB_SHA::7}"; fi
           printf 'package main\n\nfunc init() { appVersion = "%s" }\n' "$V" > version_gen.go
+          echo "APP_VERSION=$V" >> "$GITHUB_ENV"
           cat version_gen.go
       - uses: actions/setup-go@v6
         with:
@@ -40,11 +41,11 @@ jobs:
           CGO_ENABLED: 1
           GOOS: linux
           GOARCH: amd64
-        run: go build -trimpath -ldflags "-s -w" -o mywhoosh2garmin-linux-amd64 .
+        run: go build -trimpath -ldflags "-s -w" -o "MyWhoosh2Garmin-${APP_VERSION}-linux-amd64" .
       - uses: actions/upload-artifact@v7
         with:
-          name: mywhoosh2garmin-linux-amd64
-          path: mywhoosh2garmin-linux-amd64
+          name: MyWhoosh2Garmin-${{ env.APP_VERSION }}-linux-amd64
+          path: MyWhoosh2Garmin-${{ env.APP_VERSION }}-linux-amd64
 
   build-windows:
     runs-on: ubuntu-latest
@@ -54,6 +55,7 @@ jobs:
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="dev-${GITHUB_SHA::7}"; fi
           printf 'package main\n\nfunc init() { appVersion = "%s" }\n' "$V" > version_gen.go
+          echo "APP_VERSION=$V" >> "$GITHUB_ENV"
           cat version_gen.go
       - uses: actions/setup-go@v6
         with:
@@ -75,11 +77,11 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CC: x86_64-w64-mingw32-gcc
-        run: go build -trimpath -ldflags "-s -w -H=windowsgui" -o mywhoosh2garmin-windows-amd64.exe .
+        run: go build -trimpath -ldflags "-s -w -H=windowsgui" -o "MyWhoosh2Garmin-${APP_VERSION}-windows-amd64.exe" .
       - uses: actions/upload-artifact@v7
         with:
-          name: mywhoosh2garmin-windows-amd64.exe
-          path: mywhoosh2garmin-windows-amd64.exe
+          name: MyWhoosh2Garmin-${{ env.APP_VERSION }}-windows-amd64.exe
+          path: MyWhoosh2Garmin-${{ env.APP_VERSION }}-windows-amd64.exe
 
   build-macos:
     runs-on: macos-latest
@@ -89,6 +91,7 @@ jobs:
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="dev-${GITHUB_SHA::7}"; fi
           printf 'package main\n\nfunc init() { appVersion = "%s" }\n' "$V" > version_gen.go
+          echo "APP_VERSION=$V" >> "$GITHUB_ENV"
           cat version_gen.go
       - uses: actions/setup-go@v6
         with:
@@ -133,11 +136,11 @@ jobs:
             -volname "MyWhoosh2Garmin" \
             -srcfolder dmg_staging \
             -ov -format UDZO \
-            MyWhoosh2Garmin-macos-arm64.dmg
+            "MyWhoosh2Garmin-${APP_VERSION}-macos-arm64.dmg"
       - uses: actions/upload-artifact@v7
         with:
-          name: MyWhoosh2Garmin-macos-arm64.dmg
-          path: MyWhoosh2Garmin-macos-arm64.dmg
+          name: MyWhoosh2Garmin-${{ env.APP_VERSION }}-macos-arm64.dmg
+          path: MyWhoosh2Garmin-${{ env.APP_VERSION }}-macos-arm64.dmg
 
   build-android:
     runs-on: ubuntu-latest
@@ -147,6 +150,7 @@ jobs:
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="dev-${GITHUB_SHA::7}"; fi
           printf 'package main\n\nfunc init() { appVersion = "%s" }\n' "$V" > version_gen.go
+          echo "APP_VERSION=$V" >> "$GITHUB_ENV"
           cat version_gen.go
       - uses: actions/setup-go@v6
         with:
@@ -181,11 +185,11 @@ jobs:
             --app-version "$VERSION" \
             --app-build "${GITHUB_RUN_NUMBER}"
           ls -lh *.apk
-          mv *.apk MyWhoosh2Garmin-android.apk
+          mv *.apk "MyWhoosh2Garmin-${APP_VERSION}.apk"
       - uses: actions/upload-artifact@v7
         with:
-          name: MyWhoosh2Garmin-android.apk
-          path: MyWhoosh2Garmin-android.apk
+          name: MyWhoosh2Garmin-${{ env.APP_VERSION }}.apk
+          path: MyWhoosh2Garmin-${{ env.APP_VERSION }}.apk
 
   release:
     needs: [build-linux, build-windows, build-macos, build-android]
@@ -204,8 +208,4 @@ jobs:
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           generate_release_notes: true
-          files: |
-            artifacts/mywhoosh2garmin-linux-amd64/mywhoosh2garmin-linux-amd64
-            artifacts/mywhoosh2garmin-windows-amd64.exe/mywhoosh2garmin-windows-amd64.exe
-            artifacts/MyWhoosh2Garmin-macos-arm64.dmg/MyWhoosh2Garmin-macos-arm64.dmg
-            artifacts/MyWhoosh2Garmin-android.apk/MyWhoosh2Garmin-android.apk
+          files: artifacts/*/*
