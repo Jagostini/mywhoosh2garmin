@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,6 +19,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -888,6 +890,71 @@ func main() {
 		}()
 	})
 
+	// Rescue import: send a FIT file taken from the watch (Garmin/Activity)
+	// as-is. Native Garmin files already carry the right device and sensors,
+	// so nothing is modified.
+	importBtn := widget.NewButton("Importer un fichier FIT", func() {
+		fd := dialog.NewFileOpen(func(rc fyne.URIReadCloser, err error) {
+			if err != nil {
+				settingsMsg.SetText("Import échoué : " + err.Error())
+				return
+			}
+			if rc == nil {
+				return // cancelled
+			}
+			if !strings.HasSuffix(strings.ToLower(rc.URI().Name()), ".fit") {
+				rc.Close()
+				settingsMsg.SetText("Choisissez un fichier .fit (dossier Garmin > Activity de la montre).")
+				return
+			}
+			if !busy.CompareAndSwap(false, true) {
+				rc.Close()
+				settingsMsg.SetText("Une synchronisation est en cours, réessayez dans un instant.")
+				return
+			}
+			name := rc.URI().Name()
+			settingsMsg.SetText("Envoi de " + name + "...")
+			go func() {
+				defer busy.Store(false)
+				data, rerr := io.ReadAll(rc)
+				rc.Close()
+				report := func(msg string) {
+					appendLog(msg)
+					fyne.Do(func() { settingsMsg.SetText(msg) })
+				}
+				if rerr != nil {
+					report("❌ Lecture du fichier échouée : " + rerr.Error())
+					return
+				}
+				client, cerr := ensureGarmin()
+				if cerr != nil {
+					report("❌ " + cerr.Error())
+					return
+				}
+				tmpDir := filepath.Join(appConfigDir(), "tmp")
+				os.MkdirAll(tmpDir, 0o700)
+				path := filepath.Join(tmpDir, fmt.Sprintf("import_%s.fit", time.Now().Format("20060102_150405")))
+				if werr := os.WriteFile(path, data, 0o600); werr != nil {
+					report("❌ Écriture du fichier échouée : " + werr.Error())
+					return
+				}
+				defer os.Remove(path)
+				appendLog(fmt.Sprintf("⬆ Import de %s (%d octets) vers Garmin Connect...", name, len(data)))
+				if uerr := client.UploadFIT(path); uerr != nil {
+					if strings.Contains(uerr.Error(), "duplicate") {
+						report("⚠ Cette activité est déjà sur Garmin Connect (doublon). Si vous l'avez supprimée, Garmin la refuse encore : réessayez plus tard ou supprimez-la aussi de la corbeille.")
+						return
+					}
+					report("❌ Envoi échoué : " + uerr.Error())
+					return
+				}
+				report("✓ " + name + " envoyé vers Garmin Connect.")
+			}()
+		}, w)
+		fd.SetFilter(storage.NewExtensionFileFilter([]string{".fit", ".FIT"}))
+		fd.Show()
+	})
+
 	// Long texts must wrap, otherwise their natural width pushes the whole
 	// form wider than the screen.
 	note := func(text string) *widget.Label {
@@ -921,6 +988,10 @@ func main() {
 		widget.NewLabel("Exporter le fichier d'origine de MyWhoosh"),
 		exportSelect,
 		exportBtn,
+		widget.NewSeparator(),
+		widget.NewLabel("Roue de secours : importer depuis la montre"),
+		note("Branchez la montre en USB, puis choisissez un fichier .fit dans Garmin > Activity. Il est envoyé tel quel, avec l'appareil et les capteurs d'origine."),
+		importBtn,
 		widget.NewSeparator(),
 		saveBtn,
 		settingsMsg,
